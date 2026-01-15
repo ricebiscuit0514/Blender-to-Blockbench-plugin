@@ -16,4 +16,4 @@ Simple Blender plugin to export meshes to `.bbmodel` format.
 
 It will also automatically aligns models to face the forward-facing side in Blockbench.(Z axis or South)
 
-
+🤖Exporter script was written by gemini model
