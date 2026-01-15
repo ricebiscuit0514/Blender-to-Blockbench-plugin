@@ -5,7 +5,6 @@ Simple Blender plugin to export meshes to `.bbmodel` format.
 📥 How to Install
 1. Download the `blendertobb.py` file.
 2. Blender: Edit > Preferences > Add-ons > Install from disk.
-3. Select the file and enable the checkbox.
 
 🚀 How to Use
 1. Select all the objects you want to export in Blender.
@@ -14,6 +13,6 @@ Simple Blender plugin to export meshes to `.bbmodel` format.
 4. Go to File > Convert Project.
 5. Select Hytale Character or Hytale Prop.
 
-It will also automatically aligns models to face the forward-facing side in Blockbench.(Z axis or South)
+It will also automatically align models to face the forward-facing side in Blockbench.(Z axis or South)
 
 🤖Exporter script was written by gemini model
