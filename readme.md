@@ -1,6 +1,6 @@
 # Blender to Blockbench Exporter (.bbmodel)
 
-A simple Blender add-on to export mesh objects directly to `.bbmodel` format, optimized for Hytale and Blockbench workflows.
+A simple Blender add-on to export objects in `.bbmodel` format.
 
 ## 📥 How to Install
 1. Download the `blendertobb.py` file.
@@ -25,3 +25,4 @@ This add-on automatically aligns models to face the **forward-facing side** in B
 
 ---
 🤖*Script generated with the assistance of Gemini AI.*
+
