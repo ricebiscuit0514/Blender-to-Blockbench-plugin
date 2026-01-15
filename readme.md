@@ -21,8 +21,9 @@ This add-on automatically aligns models to face the **forward-facing side** in B
 
 ## ⚠️ Important Notes
 - **Testing:** This add-on has been tested only for basic object exports (verified Position, Scale, and Rotation).
-- **Limitations:** UV Unwrapping, Textures, and complex models have not been verified and may not export as expected.
+- **Limitations:** Objects that has been UV Unwrapped, Textured have not been verified and may not export as expected.
 
 ---
 🤖*Script generated with the assistance of Gemini AI.*
+
 
