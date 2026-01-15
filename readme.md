@@ -20,10 +20,12 @@ A simple Blender add-on to export objects in `.bbmodel` format.
 This add-on automatically aligns models to face the **forward-facing side** in Blockbench (Z-axis / South). 
 
 ## ⚠️ Important Notes
-- **Testing:** This add-on has been tested only for basic object exports (verified Position, Scale, and Rotation).
-- **Limitations:** Objects that has been UV Unwrapped, Textured have not been verified and may not export as expected.
+This add-on has been tested only for basic object exports (verified Position, Scale, and Rotation).
+
+Objects that has been UV Unwrapped, Textured have not been verified and may not export as expected.
 
 ---
 🤖*Script generated with the assistance of Gemini AI.*
+
 
 
