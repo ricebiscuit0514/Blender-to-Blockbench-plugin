@@ -1,23 +1,27 @@
 # Blender to Blockbench Exporter (.bbmodel)
 
-Simple Blender plugin to export meshes to `.bbmodel` format.
+A simple Blender add-on to export mesh objects directly to `.bbmodel` format, optimized for Hytale and Blockbench workflows.
 
-📥 How to Install
+## 📥 How to Install
 1. Download the `blendertobb.py` file.
-2. Blender: Edit > Preferences > Add-ons > Install from disk.
+2. In Blender, go to **Edit > Preferences > Add-ons**.
+3. Click **Install from Disk** and select the file.
+4. Enable the add-on by checking the box.
 
-🚀 How to Use
-1. Select all the objects you want to export in Blender.
-2. Go to File > Export > Blockbench (.bbmodel).
-3. Open Blockbench → Open Model.
-4. Go to File > Convert Project.
-5. Select Hytale Character or Hytale Prop.
+## 🚀 How to Use
+1. **Select Objects:** Select all objects in Blender you wish to export.
+2. **Export:** Go to **File > Export > Blockbench (.bbmodel)**.
+3. **Import:** Open Blockbench and use **Open Model** to import the file.
+4. **Convert for Hytale:**
+   - Go to **File > Convert Project**.
+   - Select **Hytale Character** or **Hytale Prop** from the dropdown.
 
-It will also automatically align models to face the forward-facing side in Blockbench.(Z axis or South)
+## 🧭 Orientation & Alignment
+This add-on automatically aligns models to face the **forward-facing side** in Blockbench (Z-axis / South). 
 
-🤖script was written by gemini
+## ⚠️ Important Notes
+- **Testing:** This add-on has been tested only for basic object exports (verified Position, Scale, and Rotation).
+- **Limitations:** UV Unwrapping, Textures, and complex models have not been verified and may not export as expected.
 
-⚠️ Important Notes
-This add-on has been tested only for basic object exports (verified Position, Scale, and Rotation).
-Blender models with UV Unwrapping, Textures, and complex geometry have not been verified and may not export as expected.
-
+---
+🤖*Script generated with the assistance of Gemini AI.*
