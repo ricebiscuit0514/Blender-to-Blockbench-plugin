@@ -1,12 +1,11 @@
 bl_info = {
-    "name": "Blockbench .bbmodel Exporter",
+    "name": "Blockbench .bbmodel Exporter (Quaternion Swap)",
     "author": "Expert Developer",
-    "version": (1, 0, 0),
+    "version": (1, 6, 0),
     "blender": (3, 0, 0),
     "location": "File > Export > Blockbench (.bbmodel)",
-    "description": "Exports selected meshes to Blockbench .bbmodel format with Hytale-compatible orientation.",
+    "description": "Exports perfectly by swapping quaternion components to avoid rotation flipping.",
     "warning": "",
-    "wiki_url": "",
     "category": "Import-Export",
 }
 
@@ -14,40 +13,32 @@ import bpy
 import json
 import os
 import math
-from mathutils import Vector
+from mathutils import Vector, Quaternion
 from bpy_extras.io_utils import ExportHelper
-from bpy.props import StringProperty, BoolProperty, EnumProperty
+from bpy.props import StringProperty
 from bpy.types import Operator
 
 class EXPORT_OT_bbmodel(Operator, ExportHelper):
-    """Export selected objects to .bbmodel file"""
-    bl_idname = "export_scene.bbmodel"
+    """Export using Quaternion Component Swapping (Fixes orientation flip)"""
+    bl_idname = "export_scene.bbmodel_quat"
     bl_label = "Export to Blockbench (.bbmodel)"
-    bl_options = {'PRESET', 'UNDO'}
-
-    # File extension filter
     filename_ext = ".bbmodel"
-    filter_glob: StringProperty(
-        default="*.bbmodel",
-        options={'HIDDEN'},
-        maxlen=255,
-    )
+
+    filter_glob: StringProperty(default="*.bbmodel", options={'HIDDEN'}, maxlen=255)
 
     def execute(self, context):
         return self.write_bbmodel(context, self.filepath)
 
     def write_bbmodel(self, context, filepath):
         objects = context.selected_objects
-        
         if not objects:
             self.report({'WARNING'}, "No objects selected.")
             return {'CANCELLED'}
 
-        # JSON Structure for .bbmodel
         bb_data = {
             "meta": {
                 "format_version": "4.0",
-                "model_format": "free", # Free model format allows arbitrary rotations
+                "model_format": "free", 
                 "box_uv": False
             },
             "name": os.path.basename(filepath),
@@ -55,65 +46,103 @@ class EXPORT_OT_bbmodel(Operator, ExportHelper):
             "outliner": []
         }
 
-        # Coordinate conversion function (Blender -> Blockbench)
-        # Mapping: Blender X (Front) -> BB Z (South)
-        # Mapping: Blender Y (Side)  -> BB X (East)
-        # Mapping: Blender Z (Up)    -> BB Y (Up)
-        def to_bb_space(vec_meters):
-            # Convert 1 Blender Unit to 16 Pixels
-            x = vec_meters.y * 16
-            y = vec_meters.z * 16
-            z = vec_meters.x * 16
-            return [x, y, z]
+        # --- [Expert Logic] Quaternion Component Swap ---
+        # Instead of converting Euler angles (which causes flipping),
+        # we directly swap the internal Quaternion components.
+        # Mapping: Blender(x,y,z) -> Blockbench(z,x,y)
+        # Therefore: Quat X -> Quat Z, Quat Y -> Quat X, Quat Z -> Quat Y
+
+        def get_swapped_rotation(obj):
+            # 1. Get rotation as Quaternion (w, x, y, z)
+            # Use 'matrix_world' decomposition to handle parented transforms correctly
+            loc, rot_quat, scl = obj.matrix_world.decompose()
+            
+            # 2. Swap components to match the axis mapping
+            # Blender X (Front) -> BB Z
+            # Blender Y (Side)  -> BB X
+            # Blender Z (Up)    -> BB Y
+            # New Quat (w, x, y, z) = Old Quat (w, y, z, x)
+            
+            new_quat = Quaternion((rot_quat.w, rot_quat.y, rot_quat.z, rot_quat.x))
+            
+            # 3. Convert to Euler (Degrees) for Blockbench
+            # Blockbench usually reads XYZ order.
+            rot_euler = new_quat.to_euler('XYZ')
+            
+            return [
+                math.degrees(rot_euler.x),
+                math.degrees(rot_euler.y),
+                math.degrees(rot_euler.z)
+            ]
+
+        def get_mapped_vector(vec):
+            # Maps vector coordinates: x->z, y->x, z->y
+            # Scale included (x16)
+            return Vector((vec.y * 16, vec.z * 16, vec.x * 16))
 
         for obj in objects:
             if obj.type != 'MESH':
                 continue
             
-            # 1. Get Scale and Calculate Local Bounding Box
-            # Blender's bound_box is unscaled, so we multiply by obj.scale
+            # 1. Calculate Origin (Pivot)
+            loc, _, _ = obj.matrix_world.decompose()
+            bb_origin = get_mapped_vector(loc)
+
+            # 2. Calculate Unrotated Local Dimensions
+            # We must map the dimensions using the same logic (x->z, y->x, z->y)
             scale = obj.scale
-            bbox_corners = [Vector(corner) for corner in obj.bound_box]
+            local_bbox = [Vector(corner) for corner in obj.bound_box]
             
-            # Apply scale to local corners
-            scaled_corners = []
-            for v in bbox_corners:
-                scaled_v = Vector((v.x * scale.x, v.y * scale.y, v.z * scale.z))
-                scaled_corners.append(scaled_v)
+            # Calculate raw local sizes
+            x_raw = (max(v.x for v in local_bbox) - min(v.x for v in local_bbox)) * scale.x
+            y_raw = (max(v.y for v in local_bbox) - min(v.y for v in local_bbox)) * scale.y
+            z_raw = (max(v.z for v in local_bbox) - min(v.z for v in local_bbox)) * scale.z
             
-            # Find min/max in local space (scaled)
-            l_min = Vector((min(c[0] for c in scaled_corners), min(c[1] for c in scaled_corners), min(c[2] for c in scaled_corners)))
-            l_max = Vector((max(c[0] for c in scaled_corners), max(c[1] for c in scaled_corners), max(c[2] for c in scaled_corners)))
+            # Map dimensions to BB axes
+            # Blender X size -> BB Z size
+            # Blender Y size -> BB X size
+            # Blender Z size -> BB Y size
+            bb_size_x = y_raw * 16
+            bb_size_y = z_raw * 16
+            bb_size_z = x_raw * 16
 
-            # 2. Calculate Origin and Absolute Position
-            # Blockbench 'from'/'to' must be absolute coordinates before rotation.
-            # Formula: Object World Location + Local Offset
-            loc = obj.location
+            # 3. Calculate 'from' and 'to' relative to Origin
+            # We assume the mesh is centered on its origin for the box calculation,
+            # then offset it if the mesh data itself is offset.
             
-            world_min = loc + l_min
-            world_max = loc + l_max
+            center_local = Vector((
+                (min(v.x for v in local_bbox) + max(v.x for v in local_bbox)) / 2 * scale.x,
+                (min(v.y for v in local_bbox) + max(v.y for v in local_bbox)) / 2 * scale.y,
+                (min(v.z for v in local_bbox) + max(v.z for v in local_bbox)) / 2 * scale.z
+            ))
             
-            # 3. Convert to Blockbench Coordinate System
-            bb_from_raw = to_bb_space(world_min)
-            bb_to_raw   = to_bb_space(world_max)
-            bb_origin   = to_bb_space(loc) # This is the Pivot Point
+            # Map offset: y->x, z->y, x->z
+            center_offset_bb = Vector((center_local.y * 16, center_local.z * 16, center_local.x * 16))
+            
+            # Absolute position
+            abs_center = bb_origin + center_offset_bb
+            
+            bb_from = [
+                abs_center.x - bb_size_x / 2,
+                abs_center.y - bb_size_y / 2,
+                abs_center.z - bb_size_z / 2
+            ]
+            
+            bb_to = [
+                abs_center.x + bb_size_x / 2,
+                abs_center.y + bb_size_y / 2,
+                abs_center.z + bb_size_z / 2
+            ]
 
-            # Sort min/max because axis swapping might invert the order
-            bb_from = [min(bb_from_raw[i], bb_to_raw[i]) for i in range(3)]
-            bb_to   = [max(bb_from_raw[i], bb_to_raw[i]) for i in range(3)]
+            # 4. Get Rotation using Quaternion Swap
+            bb_rotation = get_swapped_rotation(obj)
 
-            # 4. Convert Rotation (Euler -> Degrees & Axis Swap)
-            # Mapping: Blender (X, Y, Z) -> Blockbench (Y, Z, X)
-            rot = obj.rotation_euler
-            bb_rot = [math.degrees(rot.y), math.degrees(rot.z), math.degrees(rot.x)]
-
-            # Construct Element Dictionary
             element = {
                 "name": obj.name,
                 "from": bb_from,
                 "to": bb_to,
-                "origin": bb_origin, 
-                "rotation": bb_rot,
+                "origin": [bb_origin.x, bb_origin.y, bb_origin.z],
+                "rotation": bb_rotation,
                 "autouv": 0,
                 "faces": {
                     "north": {"uv": [0, 0, 1, 1], "texture": 0},
@@ -126,17 +155,15 @@ class EXPORT_OT_bbmodel(Operator, ExportHelper):
             }
             bb_data["elements"].append(element)
 
-        # Write to JSON file
         try:
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(bb_data, f, indent=4)
-            self.report({'INFO'}, f"Successfully exported: {filepath}")
+            self.report({'INFO'}, f"Export Success: {os.path.basename(filepath)}")
             return {'FINISHED'}
         except Exception as e:
-            self.report({'ERROR'}, f"Export failed: {str(e)}")
+            self.report({'ERROR'}, f"Error: {str(e)}")
             return {'CANCELLED'}
 
-# Registration functions to add the tool to Blender's menu
 def menu_func_export(self, context):
     self.layout.operator(EXPORT_OT_bbmodel.bl_idname, text="Blockbench (.bbmodel)")
 
